@@ -331,3 +331,12 @@ html.static [data-sa], html.static [data-bp], html.static [data-ca], html.static
 html.static a[href^="/stock.html"], html.static a[href="/classic.html"], html.static #tagForm { display: none !important; }
 html.static #syncPill { pointer-events: none; }
 html.static .todo input[type=checkbox] { pointer-events: none; }
+
+/* ===== 我的判断 ===== */
+.myview { padding: 14px 18px; margin-bottom: 18px; border-color: var(--accent); }
+.myview textarea { width: 100%; min-height: 96px; resize: vertical; margin-top: 8px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); color: var(--ink); font: 15px/1.7 var(--font-body); }
+.myview textarea:focus { outline: none; border-color: var(--accent); background: var(--surface); }
+.myview-text { margin-top: 8px; white-space: pre-wrap; font-size: 15px; line-height: 1.7; }
+
+.sa-slot, #saForm { scroll-margin-top: 80px; }
+.sa-slot .inline-form { margin: 10px 0 4px; }

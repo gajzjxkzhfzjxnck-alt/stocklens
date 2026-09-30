@@ -527,6 +527,33 @@
     </div>`;
   }
 
+  // 我的判断：手写，停止输入 1 秒后自动保存；公网只读版只显示内容
+  function myViewBox(st) {
+    const v = st.my_view || {};
+    const when = v.updated_at ? `已保存 · ${mdSlash(v.updated_at)} ${v.updated_at.slice(11, 16)}` : '还没写';
+    if (window.STOCKLENS_STATIC) {
+      return v.text ? `<div class="panel myview"><div class="view-top"><h2 style="margin:0">我的判断</h2><span class="sub">${esc(when.replace('已保存 · ', '更新于 '))}</span></div><div class="myview-text">${esc(v.text)}</div></div>` : '';
+    }
+    return `<div class="panel myview"><div class="view-top"><h2 style="margin:0"><label for="myView">我的判断</label></h2><span class="sub" id="myViewState">${esc(when)}</span></div>
+      <textarea id="myView" rows="4" placeholder="写下你自己对 ${esc(st.symbol)} 的判断：为什么买 / 为什么不买、在等什么信号、什么情况下改主意……">${esc(v.text || '')}</textarea></div>`;
+  }
+  function bindMyView(el, sym) {
+    const ta = $('#myView', el);
+    if (!ta) return;
+    const stateEl = $('#myViewState', el);
+    const grow = () => { ta.style.height = 'auto'; ta.style.height = Math.max(96, ta.scrollHeight + 2) + 'px'; };
+    grow();
+    let t, saving = Promise.resolve();
+    const save = () => {
+      const text = ta.value;
+      saving = saving.then(() => send('PATCH', `/api/stocks/${encodeURIComponent(sym)}/view`, { text }))
+        .then(r => { stateEl.textContent = `已保存 · ${mdSlash(r.updated_at)} ${r.updated_at.slice(11, 16)}`; })
+        .catch(e => { stateEl.textContent = '保存失败：' + e.message; });
+    };
+    ta.addEventListener('input', () => { grow(); stateEl.textContent = '正在输入…'; clearTimeout(t); t = setTimeout(save, 1000); });
+    ta.addEventListener('blur', () => { if (stateEl.textContent === '正在输入…') { clearTimeout(t); save(); } });
+  }
+
   function posCard(p0, st) {
     const p = { ...p0, price: st.scan && st.scan.current_price };
     const g = pnl(p), ss = posStatus(p), T = S.portfolio && S.portfolio.total_assets;
@@ -570,6 +597,9 @@
 
   async function renderStock(sym) {
     const el = $('#v-stock');
+    // 正在写“我的判断”或填改价/改评级表单时不重绘，免得把没保存的内容冲掉
+    const ae = document.activeElement;
+    if (ae && !el.hidden && el.contains(ae) && (ae.id === 'myView' || ae.closest('.inline-form'))) return;
     let st;
     try { st = await api(`/api/stocks/${encodeURIComponent(sym)}`); } catch (e) { el.innerHTML = `<div class="panel empty">没有找到 ${esc(sym)}。</div>`; return; }
     const tab = S.stab[sym] || 'ov';
@@ -581,20 +611,27 @@
       <div id="saForm" style="margin:-8px 0 16px"></div>`;
     const pos = positionOf(st.symbol);
     const tabs = [['ov', '概览'], ...(pos ? [['sell', '卖出线']] : []), ['rep', '报告', st.reports.length], ['conv', '对话', st.conversations.length], ['data', '数据']];
-    const body = tab === 'sell' && pos ? sellTab(pos) : tab === 'rep' ? reportsTab(st) : tab === 'conv' ? convsTab(st) : tab === 'data' ? dataTab(st) : (pos ? posCard(pos, st) : '') + overview(st);
+    const body = tab === 'sell' && pos ? sellTab(pos) : tab === 'rep' ? reportsTab(st) : tab === 'conv' ? convsTab(st) : tab === 'data' ? dataTab(st) : myViewBox(st) + (pos ? posCard(pos, st) : '') + overview(st);
     el.innerHTML = head + `<div class="stabs" role="tablist">${tabs.map(t => `<button data-stab="${t[0]}" class="${t[0] === tab ? 'on' : ''}">${t[1]}${t[2] != null ? `<em>${t[2]}</em>` : ''}</button>`).join('')}</div>` + body;
     $$('[data-stab]', el).forEach(b => b.addEventListener('click', () => { S.stab[sym] = b.dataset.stab; renderStock(sym); }));
     $$('[data-copy]', el).forEach(b => b.addEventListener('click', () => copy(b.dataset.copy)));
     bindFollowups(el);
-    $$('[data-sa]', el).forEach(b => b.addEventListener('click', () => stockAction(st, b.dataset.sa)));
+    $$('[data-sa]', el).forEach(b => b.addEventListener('click', () => stockAction(st, b.dataset.sa, b)));
+    bindMyView(el, st.symbol);
     $$('[data-bp]', el).forEach(b => b.addEventListener('click', () => refreshBuyplan(sym)));
     $$('[data-go]', el).forEach(b => b.addEventListener('click', () => { S.stab[sym] = b.dataset.go; renderStock(sym); }));
     const pf = $('#posForm', el);
-    if (pf) pf.onsubmit = async e => { e.preventDefault(); try { await send('PATCH', `/api/portfolio/${encodeURIComponent(sym)}`, { shares: $('#posShares').value, cost: $('#posCost').value }); await loadAll(); renderStock(sym); toast('已更新持仓'); } catch (err) { toast('保存失败：' + err.message); } };
+    if (pf) pf.onsubmit = async e => { e.preventDefault(); try { await send('PATCH', `/api/portfolio/${encodeURIComponent(sym)}`, { shares: $('#posShares').value, cost: $('#posCost').value }); if (document.activeElement) document.activeElement.blur(); await loadAll(); renderStock(sym); toast('已更新持仓'); } catch (err) { toast('保存失败：' + err.message); } };
   }
 
-  async function stockAction(st, a) {
-    const box = $('#saForm');
+  async function stockAction(st, a, btn) {
+    // 表单出现在按钮所在的框里（改买入价 → 买入计划框），不再固定在页面顶部
+    let box = $('#saForm');
+    const panel = btn && btn.closest('.panel');
+    if (panel) {
+      box = panel.querySelector('.sa-slot');
+      if (!box) { box = document.createElement('div'); box.className = 'sa-slot'; (panel.querySelector('.view-top') || panel.firstElementChild).after(box); }
+    }
     if (a === 'scan') {
       toast('正在扫描行情…');
       try { await send('POST', `/api/stocks/${encodeURIComponent(st.symbol)}/scan`); await loadAll(); renderStock(st.symbol); toast('扫描完成'); } catch (e) { toast('扫描失败：' + e.message); }
@@ -606,12 +643,16 @@
       const mine = st.targets && st.targets.mine;
       box.innerHTML = `<form class="inline-form" id="saf"><label for="saMine">我的买入价</label><input id="saMine" type="number" step="any" inputmode="decimal" value="${mine != null ? mine : ''}" placeholder="留空表示不设"><button class="btn primary" type="submit">保存</button><button class="btn" type="button" id="safCancel">取消</button></form>`;
     }
+    const field = $('#saMine') || $('#saRating');
+    box.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    if (field) { field.focus(); if (field.select) field.select(); }
     $('#safCancel').onclick = () => { box.innerHTML = ''; };
     $('#saf').onsubmit = async e => {
       e.preventDefault();
       try {
         if (a === 'rating') await send('PATCH', `/api/stocks/${encodeURIComponent(st.symbol)}/rating`, { rating: $('#saRating').value || null });
         else await send('PATCH', `/api/stocks/${encodeURIComponent(st.symbol)}/targets`, { mine: $('#saMine').value });
+        if (document.activeElement) document.activeElement.blur();
         await loadAll(); renderStock(st.symbol); toast('已保存');
       } catch (err) { toast('保存失败：' + err.message); }
     };
