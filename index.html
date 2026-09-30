@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>StockLens</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@600;700&display=swap">
+<link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+
+<header class="bar">
+  <div class="bar-in">
+    <a class="brand" href="#home">Stock<b>Lens</b></a>
+    <nav class="nav" aria-label="主导航">
+      <a href="#home" data-nav="home">研究台</a>
+      <a href="#portfolio" data-nav="portfolio">持仓</a>
+      <a href="#library" data-nav="library">对话库</a>
+      <a href="brief.html">每日简报</a>
+      <a class="m-only" href="#stocks" data-nav="stocks">股票</a>
+    </nav>
+    <div class="gsearch">
+      <label class="search" for="q">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+        <input id="q" placeholder="搜索股票、对话、结论…" autocomplete="off">
+        <span class="kbd">⌘K</span>
+      </label>
+      <div class="gresults panel" id="gresults" hidden></div>
+    </div>
+    <button class="sync" id="syncPill" title="Claude Code 对话结束后自动归档"><i class="dot"></i><span class="t" id="syncText">自动归档</span></button>
+  </div>
+</header>
+
+<div class="shell">
+  <aside class="side" aria-label="股票列表">
+    <div class="side-top">
+      <h2>我的股票 <em id="scount"></em></h2>
+      <label class="search" for="sq"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input id="sq" placeholder="筛选代码或名称" autocomplete="off"></label>
+      <div class="seg" role="group" aria-label="筛选股票"><button class="on" data-sf="all">全部</button><button data-sf="conv">有对话</button><button data-sf="hold">持仓</button><button data-sf="hit">买点</button></div>
+    </div>
+    <div class="slist" id="slist"><p class="sub pad">加载中…</p></div>
+    <div class="side-foot">按最近研究排序 · 圆点颜色是评级 · <a href="/classic.html">旧版首页</a></div>
+  </aside>
+
+  <main id="main">
+    <section data-view="home" id="v-home"></section>
+    <section data-view="portfolio" id="v-portfolio" hidden></section>
+    <section data-view="library" id="v-library" hidden></section>
+    <section data-view="conv" id="v-conv" hidden></section>
+    <section data-view="stock" id="v-stock" hidden></section>
+  </main>
+</div>
+
+<div class="toast" id="toast" hidden></div>
+<script src="js/static.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

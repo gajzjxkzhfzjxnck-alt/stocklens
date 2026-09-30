@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<script src="js/static.js"></script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>报告查看 — StockLens</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:#F6F4EF;font-family:"Inter","PingFang SC",sans-serif;}
+
+.topbar{background:#13182B;color:#EDEBE3;padding:0 20px;height:50px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;}
+.topbar-left{display:flex;align-items:center;gap:12px;}
+.topbar .logo{font-family:"Space Grotesk","Inter",sans-serif;font-weight:700;font-size:16px;color:#EDEBE3;text-decoration:none;}
+.topbar .logo span{color:#5FD49B;}
+.back-btn{color:#8E97AE;font-size:13px;text-decoration:none;display:flex;align-items:center;gap:4px;}
+.back-btn:hover{color:#EDEBE3;}
+.topbar-right{display:flex;gap:8px;}
+.btn{display:inline-flex;align-items:center;gap:5px;padding:6px 14px;border-radius:7px;font-size:12px;font-weight:600;cursor:pointer;border:none;font-family:inherit;text-decoration:none;}
+.btn-ghost{background:transparent;border:1px solid #2C3347;color:#B9BFCF;}
+.btn-ghost:hover{border-color:#8E97AE;color:#EDEBE3;}
+.btn-primary{background:#1F5FE0;color:white;}
+
+#reportFrame{
+  width:100%;
+  border:none;
+  display:block;
+  min-height:calc(100vh - 50px);
+}
+
+.loading{display:flex;align-items:center;justify-content:center;height:calc(100vh - 50px);font-size:15px;color:#6A7185;}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-left">
+    <a class="logo" href="./">Stock<span>Lens</span></a>
+    <a class="back-btn" id="backBtn" href="./">← 返回</a>
+  </div>
+  <div class="topbar-right">
+    <button class="btn btn-ghost" onclick="downloadReport()">⬇ 下载 HTML</button>
+  </div>
+</div>
+
+<div class="loading" id="loading">加载报告中...</div>
+<iframe id="reportFrame" style="display:none;"></iframe>
+
+<script>
+const id = new URLSearchParams(location.search).get('id');
+if (!id) { location.href = './'; }
+
+let reportData = null;
+
+async function init() {
+  const res = await fetch(`/api/reports/${id}`);
+  if (!res.ok) { document.getElementById('loading').textContent = '报告不存在或已被删除'; return; }
+  reportData = await res.json();
+
+  // 设置返回链接
+  const backBtn = document.getElementById('backBtn');
+  // 从 reports API 拿到 stock_id，需要再查 symbol
+  // 用 referrer 或 history 简单处理
+  if (document.referrer && document.referrer.includes('stock.html')) {
+    backBtn.href = document.referrer;
+    backBtn.textContent = '← 返回股票页';
+  } else {
+    backBtn.href = '/';
+    backBtn.textContent = '← 返回首页';
+  }
+
+  // 用 srcdoc 注入 HTML，避免跨域问题
+  const frame = document.getElementById('reportFrame');
+  frame.srcdoc = reportData.html;
+  frame.style.display = 'block';
+  document.getElementById('loading').style.display = 'none';
+
+  // 自动调整 iframe 高度
+  frame.onload = () => {
+    try {
+      const h = frame.contentDocument.body.scrollHeight;
+      frame.style.height = Math.max(h + 40, window.innerHeight - 50) + 'px';
+    } catch(e) {}
+  };
+
+  document.title = `${reportData.title} — StockLens`;
+}
+
+function downloadReport() {
+  if (!reportData) return;
+  const blob = new Blob([reportData.html], { type: 'text/html' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `report_${id}.html`;
+  a.click();
+}
+
+init();
+</script>
+</body>
+</html>

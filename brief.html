@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<script src="js/static.js"></script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>今日简报 — StockLens</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#F6F4EF;--paper-2:#FBFAF6;--ink:#13182B;--ink-soft:#2A3145;
+  --line:#D9D4C7;--line-soft:#E7E3D8;--muted:#6A7185;
+  --signal:#1F5FE0;--signal-soft:#E8EFFD;
+  --bull:#1C8A57;--bull-soft:#E3F2EA;
+  --bear:#C23B33;--bear-soft:#FBE7E4;
+  --amber:#B4791E;--amber-soft:#FBF1DC;
+  --neutral:#8A93A0;--neutral-soft:#F0F1F3;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{background:var(--paper);color:var(--ink);font-family:"Inter","PingFang SC","Microsoft YaHei",sans-serif;line-height:1.6;min-height:100vh;}
+
+.topbar{background:var(--ink);color:#EDEBE3;padding:0 28px;height:56px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;}
+.topbar .logo{font-family:"Space Grotesk";font-weight:700;font-size:18px;letter-spacing:-.01em;text-decoration:none;color:#EDEBE3;}
+.topbar .logo span{color:#5FD49B;}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:8px 16px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;border:none;font-family:inherit;transition:opacity .12s;text-decoration:none;}
+.btn:hover{opacity:.85;}
+.btn-primary{background:var(--signal);color:white;}
+.btn-ghost{background:transparent;border:1px solid rgba(255,255,255,.28);color:#EDEBE3;}
+.btn-sm{padding:5px 12px;font-size:12px;}
+.btn:disabled{opacity:.5;cursor:default;}
+
+.main{max-width:960px;margin:0 auto;padding:28px 24px 60px;}
+.page-title{font-family:"Space Grotesk";font-size:24px;font-weight:700;}
+.page-sub{font-size:13px;color:var(--muted);margin:4px 0 22px;}
+
+.stat-row{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:26px;}
+.stat-card{background:var(--paper-2);border:1px solid var(--line);border-radius:12px;padding:16px 20px;}
+.stat-card .k{font-size:12px;color:var(--muted);}
+.stat-card .v{font-family:"Space Grotesk";font-size:26px;font-weight:700;margin-top:2px;}
+.stat-card .v.warn{color:var(--amber);} .stat-card .v.buy{color:var(--bull);}
+
+.section-title{font-family:"Space Grotesk";font-size:16px;font-weight:600;margin:26px 0 12px;display:flex;align-items:center;gap:8px;}
+.section-title .cnt{font-size:12px;font-weight:500;color:var(--muted);background:var(--line-soft);padding:1px 8px;border-radius:20px;}
+
+.card{background:var(--paper-2);border:1px solid var(--line);border-radius:12px;padding:16px 18px;margin-bottom:12px;}
+.card.hl{border-left:4px solid var(--amber);}
+.card.hl-buy{border-left:4px solid var(--bull);}
+.row-head{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;}
+.row-head .sym{font-family:"Space Grotesk";font-weight:700;font-size:17px;}
+.row-head .sym a{color:inherit;text-decoration:none;}
+.row-head .sym a:hover{color:var(--signal);}
+.row-head .nm{font-size:12px;color:var(--muted);}
+.row-head .px{font-family:"Space Grotesk";font-size:14px;font-weight:600;margin-left:auto;}
+.px .chg-up{color:var(--bull);} .px .chg-down{color:var(--bear);}
+.badge{font-size:11px;padding:2px 7px;border-radius:20px;font-weight:600;}
+.badge-buy{background:var(--bull-soft);color:var(--bull);}
+.badge-watch{background:var(--amber-soft);color:var(--amber);}
+.badge-neutral{background:var(--neutral-soft);color:var(--neutral);}
+.badge-avoid{background:var(--bear-soft);color:var(--bear);}
+.reasons{margin-top:8px;display:flex;flex-direction:column;gap:4px;}
+.reason{font-size:13px;color:var(--ink-soft);}
+.reason.money{color:var(--bull);font-weight:600;}
+.news{margin-top:10px;border-top:1px dashed var(--line-soft);padding-top:8px;}
+.news-item{font-size:13px;margin:4px 0;color:var(--ink-soft);}
+.news-item a{color:var(--ink-soft);text-decoration:none;}
+.news-item a:hover{color:var(--signal);}
+.news-item .src{font-size:11px;color:var(--muted);margin-left:6px;}
+.empty{text-align:center;padding:60px 20px;color:var(--muted);}
+.empty .icon{font-size:44px;margin-bottom:10px;}
+.quiet-list{display:flex;flex-wrap:wrap;gap:8px;}
+.quiet-chip{font-family:"Space Grotesk";font-size:13px;font-weight:600;background:var(--paper-2);border:1px solid var(--line);border-radius:20px;padding:4px 12px;text-decoration:none;color:var(--ink);}
+.quiet-chip:hover{border-color:var(--signal);color:var(--signal);}
+.toast{position:fixed;bottom:28px;right:28px;background:var(--ink);color:white;padding:12px 20px;border-radius:10px;font-size:14px;z-index:999;opacity:0;transition:opacity .2s;pointer-events:none;}
+.toast.show{opacity:1;}
+details.news-box summary{cursor:pointer;font-size:12px;color:var(--muted);margin-top:8px;user-select:none;}
+</style>
+<style>html.static button{display:none!important}</style>
+</head>
+<body>
+
+<div class="topbar">
+  <a class="logo" href="./">Stock<span>Lens</span></a>
+  <button class="btn btn-ghost btn-sm" id="refreshBtn" onclick="runBrief()">🔄 重新生成简报</button>
+</div>
+
+<div class="main">
+  <div class="page-title">📋 今日简报</div>
+  <div class="page-sub" id="metaLine">加载中…</div>
+  <div class="stat-row" id="statRow"></div>
+  <div id="content"><div class="empty"><div class="icon">⏳</div><p>加载中…</p></div></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+let pollTimer = null;
+let lastGeneratedAt = null;
+
+function esc(s){ const d=document.createElement('div'); d.textContent=s==null?'':String(s); return d.innerHTML; }
+
+async function load() {
+  const b = await fetch('/api/brief').then(r => r.json());
+  if (b.running) {
+    document.getElementById('metaLine').textContent = '简报生成中，请稍候…（约1-2分钟）';
+    startPoll();
+  }
+  if (!b.exists) {
+    if (!b.running) {
+      document.getElementById('content').innerHTML =
+        '<div class="empty"><div class="icon">📭</div><p>还没有简报。点击右上角「重新生成简报」立即生成；<br>之后每天早上 8 点会自动生成。</p></div>';
+      document.getElementById('metaLine').textContent = '尚未生成';
+    }
+    return;
+  }
+  lastGeneratedAt = b.generated_at;
+  render(b);
+}
+
+function render(b) {
+  document.getElementById('metaLine').textContent =
+    `${b.date} · 生成于 ${b.generated_at}（耗时 ${b.duration_s}s）· 每天 08:00 自动更新，数据源：雅虎财经（免费）`;
+
+  document.getElementById('statRow').innerHTML = `
+    <div class="stat-card"><div class="k">监控股票</div><div class="v">${b.stats.total}</div></div>
+    <div class="stat-card"><div class="k">🔔 预警</div><div class="v warn">${b.stats.stale}</div></div>
+    <div class="stat-card"><div class="k">💰 买点触发</div><div class="v buy">${b.stats.buy_triggers}</div></div>`;
+
+  const isBuy = i => (i.scan && i.scan.reasons || []).some(r => r.includes('💰'));
+  const alerts = b.items.filter(i => i.scan && i.scan.status === 'stale');
+  const buys = alerts.filter(isBuy);
+  const others = alerts.filter(i => !isBuy(i));
+  const quiet = b.items.filter(i => !i.scan || i.scan.status !== 'stale');
+
+  let html = '';
+  if (buys.length) html += `<div class="section-title">💰 买点触发 <span class="cnt">${buys.length}</span></div>` + buys.map(i => card(i, 'hl-buy')).join('');
+  if (others.length) html += `<div class="section-title">🔔 其他预警 <span class="cnt">${others.length}</span></div>` + others.map(i => card(i, 'hl')).join('');
+  if (quiet.length) html += `<div class="section-title">😴 无异动 <span class="cnt">${quiet.length}</span></div><div class="quiet-list">` +
+    quiet.map(i => `<a class="quiet-chip" href="./#s-${esc(i.symbol)}" title="${esc((i.scan&&i.scan.current_price)||'')}">${esc(i.symbol)}</a>`).join('') + '</div>';
+  if (!alerts.length && !quiet.length) html = '<div class="empty"><div class="icon">📭</div><p>没有监控中的股票</p></div>';
+
+  document.getElementById('content').innerHTML = html;
+}
+
+function card(i, cls) {
+  const s = i.scan || {};
+  const ratingBadge = ({
+    buy:'<span class="badge badge-buy">🟢 买入</span>', watch:'<span class="badge badge-watch">🟡 观察</span>',
+    neutral:'<span class="badge badge-neutral">🟠 中性</span>', avoid:'<span class="badge badge-avoid">🔴 避开</span>',
+  })[i.rating] || '';
+  const chg = s.change_pct != null
+    ? `<span class="${s.change_pct >= 0 ? 'chg-up' : 'chg-down'}">${s.change_pct >= 0 ? '+' : ''}${s.change_pct}%</span>` : '';
+  const px = s.current_price != null ? `<span class="px">${s.current_price} ${esc(s.currency||'')} ${chg}</span>` : '';
+  const reasons = (s.reasons || []).map(r =>
+    `<div class="reason ${r.includes('💰') ? 'money' : ''}">${esc(r)}</div>`).join('');
+  const news = (i.news || []).map(n =>
+    `<div class="news-item">· <a href="${esc(n.link)}" target="_blank" rel="noopener">${esc(n.title)}</a><span class="src">${esc(n.publisher||'')} ${n.published_at ? esc(n.published_at.slice(5,16)) : ''}</span></div>`).join('');
+
+  return `<div class="card ${cls}">
+    <div class="row-head">
+      <span class="sym"><a href="./#s-${esc(i.symbol)}">${esc(i.symbol)}</a></span>
+      <span class="nm">${esc(i.name)}</span>
+      ${ratingBadge}
+      ${px}
+    </div>
+    <div class="reasons">${reasons}</div>
+    ${news ? `<details class="news-box"><summary>📰 近期新闻 (${(i.news||[]).length})</summary><div class="news">${news}</div></details>` : ''}
+  </div>`;
+}
+
+async function runBrief() {
+  const btn = document.getElementById('refreshBtn');
+  const res = await fetch('/api/brief/run', { method: 'POST' }).then(r => r.json());
+  if (res.started || res.running) {
+    btn.disabled = true;
+    btn.textContent = '⏳ 生成中…';
+    showToast('简报生成中，约1-2分钟');
+    startPoll();
+  }
+}
+
+function startPoll() {
+  if (pollTimer) return;
+  pollTimer = setInterval(async () => {
+    const b = await fetch('/api/brief').then(r => r.json());
+    if (!b.running && b.exists && b.generated_at !== lastGeneratedAt) {
+      clearInterval(pollTimer); pollTimer = null;
+      lastGeneratedAt = b.generated_at;
+      const btn = document.getElementById('refreshBtn');
+      btn.disabled = false; btn.textContent = '🔄 重新生成简报';
+      render(b);
+      showToast('✅ 简报已更新');
+    }
+  }, 5000);
+}
+
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+load();
+</script>
+</body>
+</html>
