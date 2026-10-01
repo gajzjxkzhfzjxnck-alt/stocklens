@@ -340,3 +340,22 @@ html.static .todo input[type=checkbox] { pointer-events: none; }
 
 .sa-slot, #saForm { scroll-margin-top: 80px; }
 .sa-slot .inline-form { margin: 10px 0 4px; }
+
+/* ===== 股票页：每段对话列出每个问题 ===== */
+.conv-card { padding: 0; margin-bottom: 14px; overflow: hidden; }
+.conv-head { display: grid; grid-template-columns: 90px minmax(0, 1fr) auto; gap: 14px; padding: 14px 16px; border-bottom: 1px solid var(--line); }
+.conv-head:hover { background: var(--sunk); }
+.conv-head h3 { font-size: 15px; }
+.conv-head p { margin: 4px 0 0; font-size: 13.5px; color: var(--muted); }
+.conv-head .d { font-family: var(--font-data); font-size: 12.5px; color: var(--faint); padding-top: 2px; }
+.conv-head .r { font-size: 12.5px; color: var(--faint); white-space: nowrap; }
+.qlist { list-style: none; margin: 0; padding: 4px 0; counter-reset: q; }
+.qlist li { counter-increment: q; }
+.qlist a { display: grid; grid-template-columns: 28px 90px minmax(0, 1fr); gap: 10px; padding: 7px 16px; font-size: 13.5px; align-items: baseline; }
+.qlist a::before { content: counter(q); font-family: var(--font-data); font-size: 12px; color: var(--faint); text-align: right; }
+.qlist a:hover { background: var(--sunk); color: var(--accent); }
+.qlist .qt { font-size: 12px; color: var(--faint); }
+.qlist .qq { overflow-wrap: anywhere; }
+.turn-u.flash { box-shadow: 0 0 0 4px var(--accent-soft); }
+.turn-u { scroll-margin-top: 80px; }
+@media (max-width: 640px) { .conv-head { grid-template-columns: minmax(0, 1fr); } .qlist a { grid-template-columns: 22px minmax(0, 1fr); } .qlist .qt { display: none; } }

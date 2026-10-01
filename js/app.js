@@ -346,7 +346,7 @@
   }
 
   // ── 对话详情 ─────────────────────────────────────────────
-  async function renderConv(id, focus) {
+  async function renderConv(id, focus, jumpTo) {
     const el = $('#v-conv');
     el.innerHTML = '<p class="sub">加载中…</p>';
     let c;
@@ -385,13 +385,18 @@
       sum = `<div class="panel view"><p style="margin:0">摘要生成失败：${esc(c.error || '')}</p><div class="view-act"><button class="btn primary" data-ca="resummarize">重试</button></div></div>`;
     }
     const chat = turnsShown.length ? turnsShown.map((t, i) => `
-      <div class="turn-u"><div class="md">${t.q_html}</div></div>
+      <div class="turn-u" id="turn-${t.n}"><div class="md">${t.q_html}</div></div>
       <div class="turn-a">
         ${nTools(t) ? `<button class="tools" data-tg="tl${i}">▸ 用了 ${nTools(t)} 次工具${t.interim_html ? '，查看过程' : ''}</button><div class="tools-list" id="tl${i}" hidden>${tools(t).map(([k, v]) => `${esc(k)} ×${v}`).join(' · ')}${t.interim_html ? `<div class="md interim">${t.interim_html}</div>` : ''}</div>` : ''}
         ${t.len ? `<div class="panel ans${t.len < 900 ? ' open' : ''}"><div class="fold md">${t.a_html}</div>${t.len < 900 ? '' : '<button class="more">展开完整回答</button>'}</div>` : ''}
       </div>`).join('') : `<p class="sub">${c.status === 'archived' ? '原文没有存档。' : '这段对话没有讨论股票，原文不保存。'}</p>`;
     const hiddenNote = c.hidden_turns && !fs ? `<p class="sub" style="margin:-4px 0 12px">只保存了讨论股票的 ${c.turn_count} 轮，另外 ${c.hidden_turns} 轮与股票无关（例如建网站），没有存下来。</p>` : '';
     el.innerHTML = head + sum + (c.status === 'archived' ? `<h2>对话原文</h2>${hiddenNote}<div class="chat">${chat}</div>` : '');
+    // 从股票页点某个问题进来：滚到那一问，并短暂高亮
+    if (jumpTo) {
+      const target = document.getElementById(`turn-${jumpTo}`);
+      if (target) { setTimeout(() => target.scrollIntoView({ block: 'start' }), 0); target.classList.add('flash'); setTimeout(() => target.classList.remove('flash'), 2000); }
+    }
     $$('.more', el).forEach(b => b.addEventListener('click', () => { const a = b.closest('.ans'); a.classList.toggle('open'); b.textContent = a.classList.contains('open') ? '收起' : '展开完整回答'; }));
     $$('[data-tg]', el).forEach(b => b.addEventListener('click', () => { const x = document.getElementById(b.dataset.tg); x.hidden = !x.hidden; b.textContent = b.textContent.replace(/^[▸▾]/, x.hidden ? '▸' : '▾'); }));
     $$('[data-ca]', el).forEach(b => b.addEventListener('click', () => {
@@ -512,7 +517,16 @@
       const p = st.scan && st.scan.current_price;
       return `<div class="panel empty"><div>还没有关于 ${esc(st.symbol)} 的对话。</div><div class="sub">在 Claude Code 里讨论这只股票，对话结束后会自动出现在这里。</div><button class="btn primary" data-copy="${esc(`帮我深度分析一下 ${st.symbol}（${st.name}）：${p ? `现价 ${fmt(p)}，` : ''}现在是好的买点吗？`)}">复制一个开场提问</button></div>`;
     }
-    return `<div class="panel plist">${st.conversations.map(c => { const s = (c.summary || []).find(x => x.symbol === st.symbol) || {}; const nt = (s.turns || []).length || c.turn_count; return `<a class="lrow" href="#c-${c.id}@${encodeURIComponent(st.symbol)}"><span class="d">${day(c.started_at)}</span><div><h3>${esc(s.title || c.title)}</h3>${s.verdict ? `<p>${esc(s.verdict)}</p>` : ''}</div><span class="r">${nt} 轮${s.price_at_time ? ` · 当时 ${fmt(s.price_at_time)}` : ''}</span></a>`; }).join('')}</div>`;
+    // 每段对话一张卡片，下面列出你问这只股票的每一个问题，点问题直接跳到那一问的回答
+    return st.conversations.map(c => {
+      const s = (c.summary || []).find(x => x.symbol === st.symbol) || {};
+      const qs = c.questions || [];
+      const href = `#c-${c.id}@${encodeURIComponent(st.symbol)}`;
+      return `<div class="panel conv-card">
+        <a class="conv-head" href="${href}"><span class="d">${day(c.started_at)}</span><div><h3>${esc(s.title || c.title)}</h3>${s.verdict ? `<p>${esc(s.verdict)}</p>` : ''}</div><span class="r">${qs.length || (s.turns || []).length || c.turn_count} 个问题${s.price_at_time ? ` · 当时 ${fmt(s.price_at_time)}` : ''}</span></a>
+        ${qs.length ? `<ol class="qlist">${qs.map(q => `<li><a href="${href}~${q.n}"><span class="qt mono">${q.ts ? md(q.ts) + ' ' + local(q.ts).slice(11, 16) : ''}</span><span class="qq">${esc(q.q)}</span></a></li>`).join('')}</ol>` : ''}
+      </div>`;
+    }).join('');
   }
   function dataTab(st) {
     const sc = st.scan || {}, p = sc.current_price, zs = zonesOf(st), mine = st.targets && st.targets.mine;
@@ -606,7 +620,7 @@
     const sc = st.scan || {};
     const hist = st.reports.filter(r => r.rating).slice().reverse().map(r => `${RT[r.rating]}（${mdSlash(r.created_at)}）`).filter((v, i, a) => i === 0 || a[i - 1].slice(0, 2) !== v.slice(0, 2));
     const head = `<div class="crumb"><a href="#home">研究台</a> / ${esc(st.symbol)}</div>
-      <div class="s-head"><div><div class="row" style="margin-bottom:6px">${tk(st.symbol, false)}<span class="sub">${esc(st.exchange)}${st.ai_layer_label ? ' · ' + esc(st.ai_layer_label) : ''}</span>${rt(st.latest_rating)}${st.manual_rating ? '<span class="sub">手动评级</span>' : ''}<button class="muted-link" data-sa="rating" style="border:0;background:none;padding:0 4px">改评级</button></div><h1>${esc(st.name)}</h1><div class="sub">${hist.length ? '评级：' + hist.join(' → ') + ' · ' : ''}${st.reports.length} 份报告 · ${st.conversations.length} 段对话</div></div>
+      <div class="s-head"><div><div class="row" style="margin-bottom:6px">${tk(st.symbol, false)}<span class="sub">${esc(st.exchange)}${st.ai_layer_label ? ' · ' + esc(st.ai_layer_label) : ''}</span>${rt(st.latest_rating)}${st.manual_rating ? '<span class="sub">手动评级</span>' : ''}<button class="muted-link" data-sa="rating" style="border:0;background:none;padding:0 4px">改评级</button></div><h1>${esc(st.name)}</h1><div class="sub">${hist.length ? '评级：' + hist.join(' → ') + ' · ' : ''}${st.reports.length} 份报告 · ${st.conversations.length} 段对话${st.conversations.length ? ` · ${st.conversations.reduce((n, c) => n + (c.questions || []).length, 0)} 个问题` : ''}</div></div>
       <div class="px"><div class="big">${fmt(sc.current_price)} <span class="sub mono" style="font-size:13px">${esc(sc.currency || '')}</span></div><div class="sub">${sc.change_pct != null ? `较 ${mdSlash(sc.ref_date)} 报告 <span class="mono ${updown(sc.change_pct)}">${pct(sc.change_pct)}</span> · ` : ''}${sc.scanned_at ? `${mdSlash(sc.scanned_at)} ${sc.scanned_at.slice(11, 16)} 扫描` : '还没有扫描'} · <button class="muted-link" data-sa="scan" style="border:0;background:none;padding:0">重新扫描</button></div></div></div>
       <div id="saForm" style="margin:-8px 0 16px"></div>`;
     const pos = positionOf(st.symbol);
@@ -692,7 +706,7 @@
     const h = decodeURIComponent((location.hash || '#home').slice(1));
     let v = h;
     if (/^s-/.test(h)) { v = 'stock'; renderStock(h.slice(2)); }
-    else if (/^c-/.test(h)) { v = 'conv'; const [cid, csym] = h.slice(2).split('@'); renderConv(cid, csym || null); }
+    else if (/^c-/.test(h)) { v = 'conv'; const [cid, rest] = h.slice(2).split('@'); const [csym, qn] = (rest || '').split('~'); renderConv(cid, csym || null, qn ? Number(qn) : null); }
     else if (h === 'library') renderLibrary();
     else if (h === 'portfolio') renderPortfolio();
     else if (h !== 'stocks') { v = 'home'; renderHome(); }
