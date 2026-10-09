@@ -34,7 +34,7 @@ body{background:var(--paper);color:var(--ink);font-family:"Inter","PingFang SC",
 .page-title{font-family:"Space Grotesk";font-size:24px;font-weight:700;}
 .page-sub{font-size:13px;color:var(--muted);margin:4px 0 22px;}
 
-.stat-row{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:26px;}
+.stat-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;margin-bottom:26px;}
 .stat-card{background:var(--paper-2);border:1px solid var(--line);border-radius:12px;padding:16px 20px;}
 .stat-card .k{font-size:12px;color:var(--muted);}
 .stat-card .v{font-family:"Space Grotesk";font-size:26px;font-weight:700;margin-top:2px;}
@@ -74,6 +74,22 @@ body{background:var(--paper);color:var(--ink);font-family:"Inter","PingFang SC",
 .toast{position:fixed;bottom:28px;right:28px;background:var(--ink);color:white;padding:12px 20px;border-radius:10px;font-size:14px;z-index:999;opacity:0;transition:opacity .2s;pointer-events:none;}
 .toast.show{opacity:1;}
 details.news-box summary{cursor:pointer;font-size:12px;color:var(--muted);margin-top:8px;user-select:none;}
+.rs-line{font-size:12.5px;color:var(--muted);margin-top:6px;}
+.rs-line b{color:var(--ink-soft);font-weight:600;}
+.tag{font-size:11px;padding:1px 7px;border-radius:20px;font-weight:600;white-space:nowrap;}
+.tag-stock{background:var(--bear-soft);color:var(--bear);}
+.tag-sector{background:var(--signal-soft);color:var(--signal);}
+.tag-mixed{background:var(--amber-soft);color:var(--amber);}
+.rs-wrap{overflow-x:auto;background:var(--paper-2);border:1px solid var(--line);border-radius:12px;}
+.rs-table{width:100%;border-collapse:collapse;font-size:13px;}
+.rs-table th,.rs-table td{padding:7px 10px;text-align:right;border-bottom:1px solid var(--line-soft);white-space:nowrap;}
+.rs-table th{font-size:11.5px;color:var(--muted);font-weight:600;background:var(--paper);}
+.rs-table th:first-child,.rs-table td:first-child,.rs-table th:nth-child(2),.rs-table td:nth-child(2),.rs-table td:last-child,.rs-table th:last-child{text-align:left;}
+.rs-table td.sym{font-family:"Space Grotesk";font-weight:700;}
+.rs-table td.sym a{color:inherit;text-decoration:none;}
+.rs-table .up{color:var(--bull);} .rs-table .down{color:var(--bear);}
+.rs-table tr:last-child td{border-bottom:none;}
+.rs-note{font-size:12px;color:var(--muted);margin:6px 2px 0;}
 </style>
 <style>html.static button{display:none!important}</style>
 </head>
@@ -124,7 +140,8 @@ function render(b) {
   document.getElementById('statRow').innerHTML = `
     <div class="stat-card"><div class="k">监控股票</div><div class="v">${b.stats.total}</div></div>
     <div class="stat-card"><div class="k">🔔 预警</div><div class="v warn">${b.stats.stale}</div></div>
-    <div class="stat-card"><div class="k">💰 买点触发</div><div class="v buy">${b.stats.buy_triggers}</div></div>`;
+    <div class="stat-card"><div class="k">💰 买点触发</div><div class="v buy">${b.stats.buy_triggers}</div></div>` +
+    (b.stats.stock_drops != null ? `<div class="stat-card"><div class="k">🔍 个股原因下跌</div><div class="v warn">${b.stats.stock_drops}</div></div>` : '');
 
   const isBuy = i => (i.scan && i.scan.reasons || []).some(r => r.includes('💰'));
   const alerts = b.items.filter(i => i.scan && i.scan.status === 'stale');
@@ -135,11 +152,44 @@ function render(b) {
   let html = '';
   if (buys.length) html += `<div class="section-title">💰 买点触发 <span class="cnt">${buys.length}</span></div>` + buys.map(i => card(i, 'hl-buy')).join('');
   if (others.length) html += `<div class="section-title">🔔 其他预警 <span class="cnt">${others.length}</span></div>` + others.map(i => card(i, 'hl')).join('');
+  html += rsTable(b.items);
   if (quiet.length) html += `<div class="section-title">😴 无异动 <span class="cnt">${quiet.length}</span></div><div class="quiet-list">` +
     quiet.map(i => `<a class="quiet-chip" href="./#s-${esc(i.symbol)}" title="${esc((i.scan&&i.scan.current_price)||'')}">${esc(i.symbol)}</a>`).join('') + '</div>';
   if (!alerts.length && !quiet.length) html = '<div class="empty"><div class="icon">📭</div><p>没有监控中的股票</p></div>';
 
   document.getElementById('content').innerHTML = html;
+}
+
+// ── 相对强弱：个股 vs 板块 ETF ──
+const RS_TAG = { stock: ['tag-stock', '个股原因'], sector: ['tag-sector', '板块带动'], mixed: ['tag-mixed', '混合'] };
+function pct(x) { return x == null ? '—' : `<span class="${x >= 0 ? 'up' : 'down'}">${x >= 0 ? '+' : ''}${x}%</span>`; }
+function pt(x) { return x == null ? '—' : `<span class="${x >= 0 ? 'up' : 'down'}">${x >= 0 ? '+' : ''}${x}pt</span>`; }
+function rsTag(v) { return v ? `<span class="tag ${RS_TAG[v.type][0]}" title="${esc(v.label)}">${RS_TAG[v.type][1]}</span>` : ''; }
+
+function rsLine(rs) {
+  if (!rs) return '';
+  const w = rs.d20 || rs.d5, span = rs.d20 ? '20日' : '5日';
+  return `<div class="rs-line">📊 vs ${esc(rs.etf)}（${esc(rs.etf_name)}）${span}：个股 ${pct(w.stock)} · 板块 ${pct(w.etf)} · <b>差 ${pt(w.gap)}</b> ${rsTag(rs.verdict)}</div>`;
+}
+
+function rsTable(items) {
+  const rows = items.filter(i => i.rs);
+  if (!rows.length) return '';
+  // 落后板块最多的排最前（最值得查原因）
+  const key = i => (i.rs.d20 || i.rs.d5).gap;
+  rows.sort((a, b) => key(a) - key(b));
+  const tr = rows.map(i => {
+    const r = i.rs, a = r.d5 || {}, m = r.d20 || {};
+    return `<tr><td class="sym"><a href="./#s-${esc(i.symbol)}">${esc(i.symbol)}</a></td><td>${esc(r.etf)} <span style="color:var(--muted)">${esc(r.etf_name)}</span></td>
+      <td>${pct(a.stock)}</td><td>${pct(a.etf)}</td><td>${pt(a.gap)}</td>
+      <td>${pct(m.stock)}</td><td>${pct(m.etf)}</td><td>${pt(m.gap)}</td><td>${rsTag(r.verdict)}</td></tr>`;
+  }).join('');
+  const flagged = rows.filter(i => i.rs.verdict).length;
+  return `<div class="section-title">📊 相对强弱 · 个股 vs 板块 ETF <span class="cnt">${flagged} 只明显下跌</span></div>
+    <div class="rs-wrap"><table class="rs-table">
+      <thead><tr><th>股票</th><th>对标</th><th>5日 个股</th><th>板块</th><th>差</th><th>20日 个股</th><th>板块</th><th>差</th><th>判断</th></tr></thead>
+      <tbody>${tr}</tbody></table></div>
+    <p class="rs-note">只对明显下跌打标签（20日 ≤−8% 或 5日 ≤−5%）：与板块差距 5pt 以内 = 板块带动；落后 10pt 以上 = 个股原因，需要查新闻和盈利预测。按 20 日差距排序，最落后的在最上面。</p>`;
 }
 
 function card(i, cls) {
@@ -164,6 +214,7 @@ function card(i, cls) {
       ${px}
     </div>
     <div class="reasons">${reasons}</div>
+    ${rsLine(i.rs)}
     ${news ? `<details class="news-box"><summary>📰 近期新闻 (${(i.news||[]).length})</summary><div class="news">${news}</div></details>` : ''}
   </div>`;
 }
