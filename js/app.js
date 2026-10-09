@@ -45,7 +45,7 @@
   // ── 状态 ────────────────────────────────────────────────
   const S = { stocks: [], convs: [], followups: [], feed: [], status: null, sideFilter: 'all', feedFilter: 'all', libTab: 'kept', libSym: null, libQ: '', libHits: null, stab: {} };
   const bySym = () => Object.fromEntries(S.stocks.map(s => [s.symbol, s]));
-  const tracked = s => !!s.position || s.report_count > 0 || s.conv_count > 0 || (s.targets && s.targets.mine != null) || !!s.manual_rating;
+  const tracked = s => !!s.position || !!s.followed || s.report_count > 0 || s.conv_count > 0 || (s.targets && s.targets.mine != null) || !!s.manual_rating;
   const hit = s => !!(s.scan && (s.scan.reasons || []).some(r => r.includes('💰')));
   const lastAct = s => [s.last_report_at, local(s.last_conv_at)].filter(Boolean).sort().pop() || s.added_at || '';
   function convSummaryFor(sym) {
@@ -112,6 +112,28 @@
     const on = $('#slist .srow.on'); if (on && on.scrollIntoViewIfNeeded) on.scrollIntoViewIfNeeded(false);
   }
   $('#sq').addEventListener('input', renderSide);
+
+  // ＋ 添加股票：只填代码，后端确认代码有效并带出公司名、拉一次最新价
+  const addForm = $('#addForm'), addSym = $('#addSym'), addMsg = $('#addMsg');
+  const addHint = addMsg.textContent;
+  $('#addBtn').addEventListener('click', () => { addForm.hidden = !addForm.hidden; if (!addForm.hidden) { addMsg.textContent = addHint; addSym.focus(); } });
+  $('#addCancel').addEventListener('click', () => { addForm.hidden = true; addSym.value = ''; });
+  addForm.addEventListener('submit', async e => {
+    e.preventDefault();
+    const symbol = addSym.value.trim();
+    if (!symbol) return;
+    const go = $('#addGo');
+    go.disabled = true; addMsg.textContent = `正在查找 ${symbol.toUpperCase()}…`;
+    try {
+      const st = await send('POST', '/api/stocks/add', { symbol });
+      await loadAll();
+      addForm.hidden = true; addSym.value = '';
+      location.hash = '#s-' + encodeURIComponent(st.symbol);
+      toast(st.existed ? `${st.symbol} 已在列表里` : `已添加 ${st.symbol} ${st.name}`);
+    } catch (err) {
+      addMsg.textContent = err.message;
+    } finally { go.disabled = false; }
+  });
   $$('[data-sf]').forEach(b => b.addEventListener('click', () => {
     S.sideFilter = b.dataset.sf; $$('[data-sf]').forEach(x => x.classList.toggle('on', x === b)); renderSide();
   }));

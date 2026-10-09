@@ -35,7 +35,12 @@
 <div class="shell">
   <aside class="side" aria-label="股票列表">
     <div class="side-top">
-      <h2>我的股票 <em id="scount"></em></h2>
+      <h2><span>我的股票 <em id="scount"></em></span><button class="add-btn" id="addBtn" type="button">＋ 添加</button></h2>
+      <form class="add-form" id="addForm" hidden>
+        <input id="addSym" placeholder="股票代码，如 ARGX、00700、600519" autocomplete="off" required>
+        <div class="row"><button class="btn primary" type="submit" id="addGo">添加</button><button class="btn" type="button" id="addCancel">取消</button></div>
+        <p class="sub" id="addMsg">美股填代码；港股填数字；A 股填 6 位数字。会自动带出公司名和最新股价。</p>
+      </form>
       <label class="search" for="sq"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg><input id="sq" placeholder="筛选代码或名称" autocomplete="off"></label>
       <div class="seg" role="group" aria-label="筛选股票"><button class="on" data-sf="all">全部</button><button data-sf="conv">有对话</button><button data-sf="hold">持仓</button><button data-sf="hit">买点</button></div>
     </div>

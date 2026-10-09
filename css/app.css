@@ -359,3 +359,14 @@ html.static .todo input[type=checkbox] { pointer-events: none; }
 .turn-u.flash { box-shadow: 0 0 0 4px var(--accent-soft); }
 .turn-u { scroll-margin-top: 80px; }
 @media (max-width: 640px) { .conv-head { grid-template-columns: minmax(0, 1fr); } .qlist a { grid-template-columns: 22px minmax(0, 1fr); } .qlist .qt { display: none; } }
+
+/* ===== 添加股票 ===== */
+.side-top h2 { align-items: center; }
+.add-btn { border: 1px solid var(--line); background: var(--surface); border-radius: 6px; padding: 1px 8px; font-size: 12.5px; font-weight: 500; letter-spacing: 0; color: var(--accent); text-transform: none; }
+.add-btn:hover { border-color: var(--accent); }
+.add-form { display: flex; flex-direction: column; gap: 8px; padding: 10px; background: var(--sunk); border-radius: 8px; }
+.add-form input { font: inherit; font-size: 13.5px; color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; min-width: 0; }
+.add-form input:focus { outline: none; border-color: var(--accent); }
+.add-form .btn { padding: 4px 12px; font-size: 13px; }
+.add-form .sub { margin: 0; font-size: 12px; line-height: 1.5; }
+html.static .add-btn, html.static .add-form { display: none !important; }
